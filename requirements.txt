@@ -1,4 +1,7 @@
 bs4
 requests
 
+tqdm
 markdownify
+
+python-frontmatter

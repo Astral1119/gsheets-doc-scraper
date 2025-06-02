@@ -1,3 +1,5 @@
 .venv/
-docs/
-docs-backup/
+raw/
+.obsidian/
+parsed/
+log.txt
