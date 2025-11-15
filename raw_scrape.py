@@ -1,3 +1,4 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -6,7 +7,7 @@ fx_list_url = 'https://support.google.com/docs/table/25273'
 
 def get_fx_list():
     """
-    Scrape the urls of the functions from the Google Docs support page.
+    scrape the urls of the functions from the google docs support page.
     """
     # fetch the page content
     response = requests.get(fx_list_url)
@@ -15,9 +16,15 @@ def get_fx_list():
     # links are of the form:
     # <a href="/docs/answer/3267036" target="_blank" rel="noopener">Learn more</a>
 
-    fx_list = []
-    fx_tags = []
-    fx_names = []
+    fx_list = [
+        'https://support.google.com/docs/answer/15820999',
+    ]
+    fx_tags = [
+        '',
+    ]
+    fx_names = [
+        'AI'
+    ]
 
     # all links are within a table (tbody)
     # columns are fx type, fx name, fx syntax, fx description
@@ -41,20 +48,31 @@ def get_fx_list():
 
     return fx_list, fx_tags, fx_names
 
-def get_raw_files(fx_list, fx_tags, fx_names):
+def get_raw_files(fx_list, fx_tags, fx_names, skip_existing=True):
     """
-    Get the raw HTML files for the functions.
+    get the raw html files for the functions.
+    
+    parameters:
+        fx_list (list[str]): List of URLs to fetch.
+        fx_tags (list[str]): List of function tags/categories.
+        fx_names (list[str]): List of function names.
+        skip_existing (bool): If True, skip downloading files that already exist.
     """
+    os.makedirs('raw', exist_ok=True)
+
     for fx, tag, name in tqdm(zip(fx_list, fx_tags, fx_names), total=len(fx_list)):
-        # fetch the page content
+        filename = f"{name.replace(' ', '_').replace('/', '-')}.html"
+        filepath = os.path.join('docs', filename)
+
+        if skip_existing and os.path.exists(filepath):
+            # optionally print or log skipped file
+            # print(f"Skipping existing: {filename}")
+            continue
+
         response = requests.get(fx)
         if response.status_code == 200:
-            # save the raw HTML to a file
-            filename = f"{name.replace(' ', '_').replace('/', '-')}.html"
-
-            with open('docs/' + filename, 'w', encoding='utf-8') as file:
+            with open(filepath, 'w', encoding='utf-8') as file:
                 file.write(response.text)
-
         else:
             print(f"Failed to fetch {name} ({fx}): {response.status_code}")
 

@@ -108,7 +108,7 @@ def parse_fx_to_md():
         article = soup.find('section', class_='article-container')
 
         # convert the article to markdown
-        converter = CustomMarkdownConverter()
+        converter = CustomMarkdownConverter(code_language = "gse")
         md_content = converter.convert(str(article))
 
         # remove the first three lines

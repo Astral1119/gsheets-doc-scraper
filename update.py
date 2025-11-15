@@ -1,102 +1,130 @@
-# this script takes a content directory as input
-# and updates the markdown files therein with the latest content
-# however, if the corresponding markdown file in the content directory
-# has been modified, then it will *not* be updated
-# and instead the name of the file will be logged to a file called log.txt
-# to tell if a file has been modified, we will use the file's frontmatter
-# which will lack the 'generated' tag if it has been modified
-
-# in order to best use this script, you should run it periodically
-# and manually check the files that have already been modified to make sure
-# they are up to date with the latest content
-
-# TODO:
-# - combine with raw_scrape.py to automatically update the content directory
-# - compare new and old raw html files to see if there are any changes and update the content directory accordingly
-
+#!/usr/bin/env python3
+"""
+script to update markdown files from an updated directory to a target directory.
+respects the 'modified' tag in frontmatter to avoid overwriting manually edited files.
+"""
 import os
+import shutil
 import frontmatter
 import sys
+from datetime import datetime
 
-def update_content(content_dir):
-    """
-    Update the markdown files in the content directory with the latest content.
-    If a file has been modified, it will not be updated and its name will be logged.
-    """
-    log_file = 'log.txt'
 
-    # ensure the log file exists
-    if not os.path.exists(log_file):
-        with open(log_file, 'w', encoding='utf-8') as log:
-            log.write("# Update Log\n")
+def update_files(target_dir, updated_dir):
+    """
+    update files in target_dir with files from updated_dir.
     
-    files = os.listdir(content_dir)
-
-    already_modified = set()
-    updated_files = set()
-    error_files = set()
-
-
-    for file in files:
-        file_path = os.path.join(content_dir, file)
+    args:
+        target_dir: directory containing files to potentially update
+        updated_dir: directory containing the updated files
+    """
+    log_file = 'update_log.txt'
+    
+    # track different categories of files
+    replaced_files = []
+    skipped_modified_files = []
+    new_files = []
+    error_files = []
+    
+    # get all files from the updated directory
+    updated_files = [f for f in os.listdir(updated_dir) if f.endswith('.md')]
+    
+    for filename in updated_files:
+        updated_file_path = os.path.join(updated_dir, filename)
+        target_file_path = os.path.join(target_dir, filename)
         
-        # check if the file is a markdown file
-        # shouldn't be necessary, but just in case
-        if not file.endswith('.md'):
-            continue
+        try:
+            # check if file exists in target directory
+            if os.path.exists(target_file_path):
+                # read the target file's frontmatter
+                with open(target_file_path, 'r', encoding='utf-8') as f:
+                    post = frontmatter.load(f)
+                    metadata_tags = post.get('tags', [])
+                
+                # check if the file has been modified
+                if 'modified' in metadata_tags:
+                    skipped_modified_files.append(filename)
+                else:
+                    # replace the file
+                    shutil.copy2(updated_file_path, target_file_path)
+                    replaced_files.append(filename)
+            else:
+                # file doesn't exist, copy it
+                shutil.copy2(updated_file_path, target_file_path)
+                new_files.append(filename)
         
-        # read the content of the file
-        with open(file_path, 'r', encoding='utf-8') as f:
-            metadata, content = frontmatter.parse(f.read())
-            metadata_tags = metadata['tags'] if 'tags' in metadata else []
-
-        # if there are no tags, then we assume the file has been modified
-        if not metadata_tags or 'generated' not in metadata_tags:
-            # log the file name
-            already_modified.add(file)
-            continue
-
-        # otherwise, we update the file with the latest content
-        # taken from the parsed directory
-        parsed_file_path = os.path.join('parsed', file)
-        if os.path.exists(parsed_file_path):
-            with open(parsed_file_path, 'r', encoding='utf-8') as f:
-                new_content = f.read()
-            
-            # write the new content to the file
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-
-            updated_files.add(file)
-        else:
-            # if the parsed file does not exist, log the error
-            error_files.add(file)
-
+        except Exception as e:
+            error_files.append((filename, str(e)))
+    
     # write the log file
-    with open(log_file, 'a', encoding='utf-8') as log:
-        if already_modified:
-            log.write("# Files that were not updated (modified):\n")
-            for file in already_modified:
-                log.write(f"{file}\n")
+    with open(log_file, 'w', encoding='utf-8') as log:
+        log.write(f"# File Update Log - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         
-        if updated_files:
-            log.write("# Files that were updated:\n")
-            for file in updated_files:
-                log.write(f"{file}\n")
+        if replaced_files:
+            log.write(f"## Files Replaced ({len(replaced_files)}):\n")
+            for file in sorted(replaced_files):
+                log.write(f"  - {file}\n")
+            log.write("\n")
+        
+        if skipped_modified_files:
+            log.write(f"## Files Skipped (Modified) ({len(skipped_modified_files)}):\n")
+            for file in sorted(skipped_modified_files):
+                log.write(f"  - {file}\n")
+            log.write("\n")
+        
+        if new_files:
+            log.write(f"## New Files Copied ({len(new_files)}):\n")
+            for file in sorted(new_files):
+                log.write(f"  - {file}\n")
+            log.write("\n")
         
         if error_files:
-            log.write("# Files that could not be updated (missing parsed content):\n")
-            for file in error_files:
-                log.write(f"{file}\n")
+            log.write(f"## Errors ({len(error_files)}):\n")
+            for file, error in error_files:
+                log.write(f"  - {file}: {error}\n")
+            log.write("\n")
+        
+        log.write("## Summary:\n")
+        log.write(f"  - Total files processed: {len(updated_files)}\n")
+        log.write(f"  - Replaced: {len(replaced_files)}\n")
+        log.write(f"  - Skipped (modified): {len(skipped_modified_files)}\n")
+        log.write(f"  - New files: {len(new_files)}\n")
+        log.write(f"  - Errors: {len(error_files)}\n")
+    
+    # print summary to console
+    print(f"File update completed!")
+    print(f"  - Replaced: {len(replaced_files)}")
+    print(f"  - Skipped (modified): {len(skipped_modified_files)}")
+    print(f"  - New files: {len(new_files)}")
+    print(f"  - Errors: {len(error_files)}")
+    print(f"\nDetailed log written to: {log_file}")
+
 
 if __name__ == "__main__":
-    # take the content directory as an argument
-    if len(sys.argv) != 2:
-        print("Usage: python update.py <content_directory>")
+    if len(sys.argv) != 3:
+        print("Usage: python update_files.py <target_directory> <updated_directory>")
+        print("  target_directory: Directory containing files to update")
+        print("  updated_directory: Directory containing the updated files")
         sys.exit(1)
-    content_directory = sys.argv[1]
-    if not os.path.exists(content_directory):
-        print(f"Content directory {content_directory} does not exist.")
+    
+    target_directory = sys.argv[1]
+    updated_directory = sys.argv[2]
+    
+    # validate directories
+    if not os.path.exists(target_directory):
+        print(f"Error: Target directory '{target_directory}' does not exist.")
         sys.exit(1)
-    update_content(content_directory)
-    print("Content update completed. Check log.txt for any modified files.")
+    
+    if not os.path.isdir(target_directory):
+        print(f"Error: '{target_directory}' is not a directory.")
+        sys.exit(1)
+    
+    if not os.path.exists(updated_directory):
+        print(f"Error: Updated directory '{updated_directory}' does not exist.")
+        sys.exit(1)
+    
+    if not os.path.isdir(updated_directory):
+        print(f"Error: '{updated_directory}' is not a directory.")
+        sys.exit(1)
+    
+    update_files(target_directory, updated_directory)
