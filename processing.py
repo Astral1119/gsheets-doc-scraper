@@ -109,7 +109,6 @@ def fix_code_blocks(text):
     
     return '\n'.join(result)
 
-
 def fix_google_sheets_errors(text):
     """
     wrap Google Sheets error codes in inline code blocks.
@@ -137,6 +136,41 @@ def fix_google_sheets_errors(text):
     
     return new_text
 
+def fix_dollar_signs(text):
+    """
+    escape literal $ so they are not interpreted as LaTeX delimiters.
+    does not modify:
+    - inline code (`...`)
+    - fenced code blocks (```...```)
+    - already-escaped $
+    """
+    # split into fenced code, inline code, or normal text
+    # group 1: fenced code block
+    # group 2: inline code
+    # group 3: normal text
+    pattern = re.compile(
+        r'(```[\s\S]*?```)|'     # fenced code
+        r'(`[^`]+`)|'            # inline code
+        r'([^`]+)',              # normal text
+        re.MULTILINE
+    )
+
+    def escape_dollars(segment):
+        # replace unescaped $ with \$
+        return re.sub(r'(?<!\\)\$', r'\$', segment)
+
+    parts = pattern.findall(text)
+    result = []
+
+    for fenced, inline, normal in parts:
+        if fenced:
+            result.append(fenced)
+        elif inline:
+            result.append(inline)
+        elif normal:
+            result.append(escape_dollars(normal))
+
+    return ''.join(result)
 
 def fix_links(text, valid_names):
     """
@@ -212,6 +246,7 @@ def process_markdown_file(text, valid_names):
     text = fix_google_sheets_errors(text)
     text = fix_links(text, valid_names)
     text = fix_setext_headers(text)
+    text = fix_dollar_signs(text)
     text = fix_code_blocks(text)
     text = convert_bullet_lists(text)
     return text

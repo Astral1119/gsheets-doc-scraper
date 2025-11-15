@@ -18,12 +18,16 @@ def get_fx_list():
 
     fx_list = [
         'https://support.google.com/docs/answer/15820999',
+        'https://support.google.com/docs/answer/12406049',
+        'https://support.google.com/docs/answer/9982776',
     ]
     fx_tags = [
         '',
     ]
     fx_names = [
-        'AI'
+        'AI',
+        'XMATCH',
+        'BINOM.DIST.RANGE',
     ]
 
     # all links are within a table (tbody)
@@ -51,22 +55,21 @@ def get_fx_list():
 def get_raw_files(fx_list, fx_tags, fx_names, skip_existing=True):
     """
     get the raw html files for the functions.
-    
+
     parameters:
         fx_list (list[str]): List of URLs to fetch.
         fx_tags (list[str]): List of function tags/categories.
         fx_names (list[str]): List of function names.
         skip_existing (bool): If True, skip downloading files that already exist.
     """
-    os.makedirs('raw', exist_ok=True)
+    out_dir = 'raw'
+    os.makedirs(out_dir, exist_ok=True)
 
     for fx, tag, name in tqdm(zip(fx_list, fx_tags, fx_names), total=len(fx_list)):
         filename = f"{name.replace(' ', '_').replace('/', '-')}.html"
-        filepath = os.path.join('docs', filename)
+        filepath = os.path.join(out_dir, filename)
 
         if skip_existing and os.path.exists(filepath):
-            # optionally print or log skipped file
-            # print(f"Skipping existing: {filename}")
             continue
 
         response = requests.get(fx)
