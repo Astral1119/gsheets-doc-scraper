@@ -1,5 +1,5 @@
 import os
-import sys
+parsed_dir = 'parsed'
 
 def get_unique_headers():
     """
@@ -7,7 +7,6 @@ def get_unique_headers():
     then sorts them by count and writes them to 'headers.txt'.
     """
     headers = {}
-    parsed_dir = 'parsed'
 
     # iterate through all files in the parsed directory
     for filename in os.listdir(parsed_dir):
@@ -26,6 +25,32 @@ def get_unique_headers():
         for header, count in sorted_headers:
             output_file.write(f"{header} - {count}\n")
 
+def check_for_headers(headers):
+    """
+    looks at all the files in the 'parsed' directory and checks if they have
+    certain headers.
+    """
+    files = os.listdir(parsed_dir)
+    missing_headers = {}
+
+    for filename in files:
+        if filename.endswith('.md'):
+            with open(os.path.join(parsed_dir, filename), 'r', encoding='utf-8') as file:
+                temp = headers
+
+                for line in file:
+                    if line.startswith('#'):
+                        header = line.lstrip('#').strip()
+
+                        temp = temp.difference({header})
+
+                if temp:
+                    missing_headers[filename] = temp
+
+    with open('missing_headers.txt', 'w', encoding='utf-8') as output_file:
+        for filename, missing in missing_headers.items():
+            output_file.write(f"{filename} - {", ".join(missing)}\n")
+
 if __name__ == "__main__":
-    get_unique_headers()
-    print("Unique headers have been extracted and written to 'headers.txt'.")
+    headers = {"Syntax"}
+    check_for_headers(headers)

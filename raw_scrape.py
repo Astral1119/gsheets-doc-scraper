@@ -20,6 +20,8 @@ def get_fx_list():
         'https://support.google.com/docs/answer/15820999',
         'https://support.google.com/docs/answer/12406049',
         'https://support.google.com/docs/answer/9982776',
+        'https://support.google.com/docs/answer/9584429',
+        'https://support.google.com/docs/answer/9983035',
     ]
     fx_tags = [
         '',
@@ -28,6 +30,8 @@ def get_fx_list():
         'AI',
         'XMATCH',
         'BINOM.DIST.RANGE',
+        'COUNTUNIQUEIFS',
+        'PERCENTIF',
     ]
 
     # all links are within a table (tbody)

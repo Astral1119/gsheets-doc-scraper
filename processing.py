@@ -214,6 +214,39 @@ def fix_links(text, valid_names):
     
     return link_regex.sub(replacer, text)
 
+def fix_syntax_headers(text):
+    """
+    some files are missing a Syntax section
+    but may have analogous. this function just
+    replaces analogous sections with a Syntax header
+    """
+    # split into fenced code, inline code, or normal text
+    # group 1: fenced code block
+    # group 2: inline code
+    # group 3: normal text
+    pattern = re.compile(
+        r'(```[\s\S]*?```)|'     # fenced code
+        r'(`[^`]+`)|'            # inline code
+        r'([^`]+)',              # normal text
+        re.MULTILINE
+    )
+
+    def replace_header(segment):
+        return re.sub(r'Parts of a.*\s', 'Syntax', segment)
+
+    parts = pattern.findall(text)
+    result = []
+
+    for fenced, inline, normal in parts:
+        if fenced:
+            result.append(fenced)
+        elif inline:
+            result.append(inline)
+        elif normal:
+            result.append(replace_header(normal))
+
+    return ''.join(result)
+
 
 def convert_bullet_lists(text):
     """
@@ -248,6 +281,7 @@ def process_markdown_file(text, valid_names):
     text = fix_setext_headers(text)
     text = fix_dollar_signs(text)
     text = fix_code_blocks(text)
+    text = fix_syntax_headers(text)
     text = convert_bullet_lists(text)
     return text
 
