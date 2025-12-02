@@ -1,11 +1,59 @@
+"""process and clean up markdown files from scraped documentation."""
+
 import os
 import re
+import bs4
 from tqdm import tqdm
 
+
+def get_source_link(file):
+    """extract the canonical url from the raw html file."""
+    directory = 'raw'
+    filepath = os.path.join(directory, file + '.html')
+
+    # read the file
+    with open(filepath, 'r', encoding='utf-8') as f:
+        soup = bs4.BeautifulSoup(f.read(), features="html.parser")
+        canonical_tag = soup.find('link', rel='canonical')
+
+        if canonical_tag and 'href' in canonical_tag.attrs:
+            return canonical_tag['href']
+        else:
+            return None
+
+
+def add_source_callout(url, text):
+    """add a source callout after the frontmatter."""
+    callout = "> [!INFO]\n> This page was originally generated from [official documentation](" + url + ")."
+
+    lines = text.split('\n')
+    result = []
+    i = 0
+
+    # skip yaml frontmatter if present
+    if lines and lines[0].strip() == '---':
+        result.append(lines[0])
+        i = 1
+        # find the closing ---
+        while i < len(lines):
+            result.append(lines[i])
+            if lines[i].strip() == '---':
+                i += 1
+                break
+            i += 1
+
+    result.append(callout)
+
+    while i < len(lines):
+        result.append(lines[i])
+        i += 1
+
+    return '\n'.join(result)
+
+
 def fix_setext_headers(text):
-    """
-    convert setext-style headers (underlined with dashes) to ATX-style headers.
-    skips YAML frontmatter.
+    """convert setext-style headers (underlined with dashes) to atx-style headers.
+    skips yaml frontmatter.
     
     example:
         header?
@@ -39,7 +87,7 @@ def fix_setext_headers(text):
             
             # check if next line is all dashes (at least 3)
             if re.match(r'^-{3,}$', next_line.strip()) and current_line.strip():
-                # convert to ATX header (level 3)
+                # convert to atx header (level 3)
                 result.append(f'### {current_line.strip()}')
                 i += 2  # skip both the header line and underline
                 continue
@@ -49,9 +97,9 @@ def fix_setext_headers(text):
     
     return '\n'.join(result)
 
+
 def fix_code_blocks(text):
-    """
-    convert standalone inline code blocks into fenced code blocks with 'gse' language.
+    """convert standalone inline code blocks into fenced code blocks with 'gse' language.
     combines consecutive code blocks or code blocks separated only by blank lines.
     
     example:
@@ -109,9 +157,9 @@ def fix_code_blocks(text):
     
     return '\n'.join(result)
 
+
 def fix_google_sheets_errors(text):
-    """
-    wrap Google Sheets error codes in inline code blocks.
+    """wrap google sheets error codes in inline code blocks.
     only affects errors that are not already in code blocks.
     
     errors: #NULL!, #DIV/0!, #VALUE!, #REF!, #NAME?, #NUM!, #N/A, #ERROR
@@ -119,7 +167,7 @@ def fix_google_sheets_errors(text):
     # pattern to split text into inline code and normal text
     pattern = r'(`[^`]+`)|([^`]+)'
     
-    # regex to match Google Sheets errors (not in code blocks)
+    # regex to match google sheets errors (not in code blocks)
     error_regex = re.compile(r'(#NULL!|#DIV/0!|#VALUE!|#REF!|#NAME\?|#NUM!|#N/A|#ERROR)')
     
     new_text = ''
@@ -136,9 +184,9 @@ def fix_google_sheets_errors(text):
     
     return new_text
 
+
 def fix_dollar_signs(text):
-    """
-    escape literal $ so they are not interpreted as LaTeX delimiters.
+    """escape literal $ so they are not interpreted as latex delimiters.
     does not modify:
     - inline code (`...`)
     - fenced code blocks (```...```)
@@ -172,9 +220,9 @@ def fix_dollar_signs(text):
 
     return ''.join(result)
 
+
 def fix_links(text, valid_names):
-    """
-    convert markdown links to wikilinks where appropriate.
+    """convert markdown links to wikilinks where appropriate.
     
     rules:
     - links starting with '//' get 'https:' prepended
@@ -214,11 +262,10 @@ def fix_links(text, valid_names):
     
     return link_regex.sub(replacer, text)
 
+
 def fix_syntax_headers(text):
-    """
-    some files are missing a Syntax section
-    but may have analogous. this function just
-    replaces analogous sections with a Syntax header
+    """some files are missing a syntax section but may have analogous.
+    this function replaces analogous sections with a syntax header.
     """
     # split into fenced code, inline code, or normal text
     # group 1: fenced code block
@@ -249,33 +296,33 @@ def fix_syntax_headers(text):
 
 
 def convert_bullet_lists(text):
-    """
-    convert all * bullet lists to - bullet lists.
-    """
+    """convert all * bullet lists to - bullet lists."""
     lines = text.split('\n')
     result = []
     
     for line in lines:
         # match lines that start with optional whitespace, then *, then a space
         if re.match(r'^(\s*)\*\s', line):
-            # Replace the * with -
+            # replace the * with -
             line = re.sub(r'^(\s*)\*\s', r'\1- ', line)
         result.append(line)
     
     return '\n'.join(result)
 
 
-def process_markdown_file(text, valid_names):
-    """
-    apply all markdown fixes to a text document.
+def process_markdown_file(file, text, valid_names):
+    """apply all markdown fixes to a text document.
     
     args:
+        file: filename being processed
         text: the markdown text to process
         valid_names: list of valid document names for wikilink conversion
         
     returns:
         the processed markdown text
     """
+    url = get_source_link(file[:-3])
+
     text = fix_google_sheets_errors(text)
     text = fix_links(text, valid_names)
     text = fix_setext_headers(text)
@@ -283,19 +330,18 @@ def process_markdown_file(text, valid_names):
     text = fix_code_blocks(text)
     text = fix_syntax_headers(text)
     text = convert_bullet_lists(text)
+    text = add_source_callout(url, text)
     return text
 
 
 def process_directory(directory='parsed'):
-    """
-    process all markdown files in a directory with the markdown fixes.
-    """
+    """process all markdown files in a directory with the markdown fixes."""
     files = os.listdir(directory)
     
     # get list of valid names for wikilink conversion
     valid_names = [file[:-3] for file in files if file.endswith('.md')]
     
-    for file in tqdm(files, desc='Processing markdown files'):
+    for file in tqdm(files, desc='processing markdown files'):
         if file == ".obsidian" or not file.endswith('.md'):
             continue
         
@@ -306,7 +352,7 @@ def process_directory(directory='parsed'):
             content = f.read()
         
         # process the content
-        content = process_markdown_file(content, valid_names)
+        content = process_markdown_file(file, content, valid_names)
         
         # write back
         with open(filepath, 'w', encoding='utf-8') as f:

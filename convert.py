@@ -1,21 +1,19 @@
-from bs4 import BeautifulSoup, Tag
-import requests
-from tqdm import tqdm
+"""convert scraped html documentation to markdown format."""
 
+import os
+import requests
+from bs4 import BeautifulSoup
+from tqdm import tqdm
 from markdownify import markdownify as md
 from markdownify import MarkdownConverter
 
-import os
 
 class CustomMarkdownConverter(MarkdownConverter):
-    """
-    Custom markdown converter to handle specific HTML tags.
-    """
+    """custom markdown converter to handle specific html tags."""
+    
     def convert_iframe(self, el, text, parent_tags):
-        """
-        iframes should be passed through as raw HTML.
-        """
-        # pass through the raw HTML for iframes
+        """iframes should be passed through as raw html."""
+        # pass through the raw html for iframes
         # but first, make sure that the src is absolute
         # because some are missing 'https:'
         src = el.get('src', '')
@@ -23,13 +21,11 @@ class CustomMarkdownConverter(MarkdownConverter):
             src = 'https:' + src
         el['src'] = src
 
-        # return the raw HTML as a string
+        # return the raw html as a string
         return str(el)
     
     def convert_table(self, el, text, parent_tags):
-        """
-        Custom table converter to automatically detect header rows.
-        """
+        """custom table converter to automatically detect header rows."""
         # first, remove the class attribute
         el.attrs.pop('class', None)
 
@@ -69,9 +65,7 @@ class CustomMarkdownConverter(MarkdownConverter):
 
 
 def get_fx_tags():
-    """
-    Gets the tags from function_tags.csv and returns a dictionary.
-    """
+    """gets the tags from function_tags.csv and returns a dictionary."""
     fx_tags = {}
     with open('function_tags.csv', 'r') as f:
         for line in f:
@@ -80,10 +74,9 @@ def get_fx_tags():
 
     return fx_tags
 
+
 def parse_fx_to_md():
-    """
-    Parse the functions to markdown format.
-    """
+    """parse the functions to markdown format."""
     # ensure the parsed directory exists
     if not os.path.exists('parsed'):
         os.makedirs('parsed')
@@ -93,7 +86,7 @@ def parse_fx_to_md():
 
     # iterate over all of the raw html in the raw directory
     # and convert them to markdown
-    for fx_file in tqdm(os.listdir('raw'), desc='Parsing functions'):
+    for fx_file in tqdm(os.listdir('raw'), desc='parsing functions'):
         # get the name
         name = os.path.splitext(fx_file)[0]
         
@@ -108,19 +101,20 @@ def parse_fx_to_md():
         article = soup.find('section', class_='article-container')
 
         # convert the article to markdown
-        converter = CustomMarkdownConverter(code_language = "gse")
+        converter = CustomMarkdownConverter(code_language="gse")
         md_content = converter.convert(str(article))
 
         # remove the first three lines
         md_content = '\n'.join(md_content.split('\n')[3:])
 
         # add tag frontmatter
-        md_content = f'---\ntags:\n  - function\n  - generated\n  - {fx_tags.get(name, "unknown")}\n---\n\n' + md_content
+        md_content = f'---\ntags:\n  - function\n  - generated\n  - {fx_tags.get(name, "unknown")}\ndescription: {md_content.split(chr(10))[0].split(".")[0]}.\n---\n\n' + md_content
 
         # write the content to a file
         with open(f'parsed/{name}.md', 'w') as f:
             f.write(md_content)
 
+
 if __name__ == '__main__':
     parse_fx_to_md()
-    print('Done!')
+    print('done!')

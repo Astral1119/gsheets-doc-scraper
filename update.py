@@ -1,18 +1,16 @@
-#!/usr/bin/env python3
-"""
-script to update markdown files from an updated directory to a target directory.
+"""utility to update markdown files from source to target directory.
 respects the 'modified' tag in frontmatter to avoid overwriting manually edited files.
-also detects when content is unchanged and skips those separately.
 """
+
 import os
+import sys
 import shutil
 import frontmatter
-import sys
 from datetime import datetime
 
 
 def files_are_identical(path1, path2):
-    """Return True if two files have identical text content."""
+    """return true if two files have identical text content."""
     try:
         with open(path1, 'r', encoding='utf-8') as f1, \
              open(path2, 'r', encoding='utf-8') as f2:
@@ -22,6 +20,7 @@ def files_are_identical(path1, path2):
 
 
 def update_files(target_dir, updated_dir):
+    """update files in target directory from updated directory, respecting modifications."""
     log_file = 'update_log.txt'
     
     replaced_files = []
@@ -107,29 +106,29 @@ def update_files(target_dir, updated_dir):
         log.write(f"  - Errors: {len(error_files)}\n")
     
     # console summary
-    print(f"File update completed!")
-    print(f"  - Replaced: {len(replaced_files)}")
-    print(f"  - Unchanged: {len(unchanged_files)}")
-    print(f"  - Skipped (modified): {len(skipped_modified_files)}")
-    print(f"  - New files: {len(new_files)}")
-    print(f"  - Errors: {len(error_files)}")
-    print(f"\nDetailed log written to: {log_file}")
+    print(f"file update completed!")
+    print(f"  - replaced: {len(replaced_files)}")
+    print(f"  - unchanged: {len(unchanged_files)}")
+    print(f"  - skipped (modified): {len(skipped_modified_files)}")
+    print(f"  - new files: {len(new_files)}")
+    print(f"  - errors: {len(error_files)}")
+    print(f"\ndetailed log written to: {log_file}")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python update_files.py <target_directory> <updated_directory>")
+        print("usage: python update.py <target_directory> <updated_directory>")
         sys.exit(1)
     
     target_directory = sys.argv[1]
     updated_directory = sys.argv[2]
     
     if not os.path.exists(target_directory) or not os.path.isdir(target_directory):
-        print(f"Error: Target directory '{target_directory}' is invalid.")
+        print(f"error: target directory '{target_directory}' is invalid.")
         sys.exit(1)
     
     if not os.path.exists(updated_directory) or not os.path.isdir(updated_directory):
-        print(f"Error: Updated directory '{updated_directory}' is invalid.")
+        print(f"error: updated directory '{updated_directory}' is invalid.")
         sys.exit(1)
     
     update_files(target_directory, updated_directory)
